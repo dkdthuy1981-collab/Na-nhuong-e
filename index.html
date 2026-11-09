@@ -1,0 +1,1176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mô phỏng Quá trình tạo thành Ion Sodium (Na+)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .font-code {
+      font-family: 'Fira Code', monospace;
+    }
+    canvas {
+      display: block;
+      touch-action: none;
+    }
+    .watermark-glow {
+      text-shadow: 0 1px 3px rgba(0,0,0,0.8), 0 0 10px rgba(245, 158, 11, 0.5);
+    }
+    @keyframes pulseRing {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .rec-pulse {
+      animation: pulseRing 1.5s infinite;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 px-4 py-3 shadow-sm">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-indigo-600 flex items-center justify-center text-white font-extrabold text-lg shadow-md">
+          Na
+        </div>
+        <div>
+          <h1 class="text-lg md:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            Mô phỏng chuyển động: Quá trình tạo thành <span class="text-indigo-600">Na<sup>+</sup></span>
+            <span class="hidden sm:inline-block text-xs font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">Chuẩn Hóa 10</span>
+          </h1>
+          <p class="text-xs text-slate-500 font-medium">Chương trình GDPT 2018 • Chủ đề: Liên kết hóa học & Quy tắc Octet</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="headerBadge" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+          ● Giai đoạn 1: Nguyên tử Na
+        </span>
+        <span class="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-300">
+          Z = 11
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 flex-grow">
+    
+    <!-- Simulation Viewport (8 Cols) -->
+    <div class="lg:col-span-8 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      
+      <!-- Stage & Action Banner -->
+      <div class="px-4 py-2.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between flex-wrap gap-2 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-ping"></span>
+          <span id="stageStatusText" class="font-bold text-slate-800">
+            Giai đoạn 1: Nguyên tử Sodium (Na) đang quay với đầy đủ 3 lớp e (2, 8, 1)
+          </span>
+        </div>
+        <div class="flex items-center gap-3 text-slate-600 font-medium">
+          <!-- Recording status indicator badge -->
+          <div id="recordingBadge" class="hidden items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200 text-[11px] font-bold rec-pulse">
+            <span class="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+            ĐANG GHI HÌNH: <span id="recordTimer">00:00</span>
+          </div>
+          <span>Tiến độ: <strong id="stepIndicator" class="text-indigo-600 font-bold">0%</strong></span>
+        </div>
+      </div>
+
+      <!-- Canvas Area -->
+      <div class="relative w-full aspect-[16/9] min-h-[400px] md:min-h-[470px] bg-white flex items-center justify-center overflow-hidden">
+        <canvas id="bohrCanvas" class="w-full h-full"></canvas>
+
+        <!-- Dynamic Equation Banner with Glow & Sparkle Sweep (Appears in Phase 3) -->
+        <div id="equationBanner" class="absolute bottom-12 left-1/2 -translate-x-1/2 opacity-0 pointer-events-none transition-all duration-700 ease-out transform translate-y-3 flex flex-col items-center">
+          <div class="relative px-6 py-2.5 rounded-2xl bg-slate-900/90 backdrop-blur-md border border-amber-400/80 shadow-[0_0_25px_rgba(245,158,11,0.5)] flex items-center gap-3 overflow-hidden">
+            <!-- Glowing light sweep beam -->
+            <div id="glowBeam" class="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-12 -translate-x-full pointer-events-none"></div>
+            
+            <span class="text-amber-400 font-bold text-xs uppercase tracking-wider hidden sm:inline-block">Phương trình nhường e:</span>
+            <span class="text-lg sm:text-2xl font-black font-code text-white tracking-wide flex items-center gap-2">
+              <span class="text-slate-300 font-sans">(</span>
+              <span class="text-amber-300 drop-shadow-[0_0_8px_rgba(252,211,77,0.8)]">Na</span>
+              <span class="text-red-400 font-sans mx-0.5">⟶</span>
+              <span class="text-cyan-300 drop-shadow-[0_0_8px_rgba(103,232,249,0.8)]">Na<sup>+</sup></span>
+              <span class="text-slate-400 font-sans mx-0.5">+</span>
+              <span class="text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]">1e</span>
+              <span class="text-slate-300 font-sans">)</span>
+            </span>
+            <!-- Sparkle icon indicator -->
+            <span class="flex h-3 w-3 relative">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+            </span>
+          </div>
+          <span class="text-[11px] font-semibold text-slate-600 bg-white/80 px-2.5 py-0.5 rounded-full mt-1.5 shadow-2xs border border-slate-200">
+            Tạo thành Cation sodium (Na⁺) đạt cấu hình bền vững khí hiếm Ne
+          </span>
+        </div>
+
+        <!-- Fixed Watermark -->
+        <div class="absolute bottom-3 right-3 select-none pointer-events-none text-xs sm:text-sm font-extrabold tracking-wider px-3.5 py-1.5 rounded-lg bg-black/80 backdrop-blur-md text-yellow-300 border border-yellow-400 shadow-lg watermark-glow flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+          HỌC LIỆU SỐ- dkdthuy
+        </div>
+
+        <!-- Live Audio Mode Indicator overlay -->
+        <div class="absolute top-3 right-3 text-[11px] font-medium text-slate-700 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-lg border border-slate-200 shadow-xs flex items-center gap-1.5">
+          <svg id="audioIconIndicator" class="w-3.5 h-3.5 text-indigo-600 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+          </svg>
+          <span id="audioModeLabel">Âm nhạc & Hiệu ứng sáo: BẬT</span>
+        </div>
+      </div>
+
+      <!-- Synchronized Vietnamese Subtitle Bar -->
+      <div class="bg-slate-900 border-t border-slate-800 px-4 py-3 flex items-center justify-between gap-3 text-xs sm:text-sm">
+        <div class="flex items-center gap-2 overflow-hidden">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+          <p class="font-medium tracking-wide text-slate-300">
+            <span id="subPart1" class="transition-colors duration-300 font-bold text-white">Sodium có 1 electron lớp ngoài cùng,</span> 
+            <span id="subPart2" class="transition-colors duration-300 text-slate-400">nên nhường 1e</span> 
+            <span id="subPart3" class="transition-colors duration-300 text-slate-400">trở thành ion mang điện tích 1+.</span>
+          </p>
+        </div>
+        <!-- Sound Toggle Mini Button -->
+        <button id="btnToggleSound" class="shrink-0 px-2.5 py-1 rounded-lg bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 border border-indigo-700 text-xs font-semibold flex items-center gap-1.5 transition">
+          <svg id="soundSvg" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.08"></path>
+          </svg>
+          <span id="soundBtnText">Âm thanh: BẬT</span>
+        </button>
+      </div>
+
+      <!-- Interactive Controls -->
+      <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-col gap-3">
+        
+        <!-- Timeline Slider -->
+        <div class="flex items-center gap-3">
+          <label for="timelineSlider" class="text-xs font-bold text-slate-700 whitespace-nowrap min-w-[70px]">
+            Diễn biến:
+          </label>
+          <input type="range" id="timelineSlider" min="0" max="100" value="0" 
+                 class="w-full h-2.5 bg-slate-300 rounded-lg appearance-none cursor-pointer accent-indigo-600 focus:outline-none transition">
+          <span id="sliderPercentText" class="text-xs font-code font-bold text-indigo-700 w-12 text-right">0%</span>
+        </div>
+
+        <!-- Buttons Panel -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Play/Pause Button -->
+            <button id="btnPlayPause" 
+                    class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-md shadow-indigo-200 transition flex items-center gap-2">
+              <svg id="playIcon" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+              <svg id="pauseIcon" class="w-4 h-4 fill-current hidden" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+              <span id="btnPlayText">Bắt đầu mô phỏng</span>
+            </button>
+
+            <!-- Auto-Loop Video Play Button -->
+            <button id="btnAutoLoop" 
+                    class="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+              </svg>
+              <span id="autoLoopText">Tự phát Video: BẬT</span>
+            </button>
+
+            <!-- Screen Recording Button (MediaRecorder Canvas Stream) -->
+            <button id="btnRecordVideo" 
+                    class="px-3.5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold text-xs sm:text-sm shadow-sm transition flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
+              <span id="recordBtnText">Ghi video HD + âm thanh</span>
+            </button>
+
+            <!-- Reset Button -->
+            <button id="btnReset" 
+                    class="px-3 py-2.5 rounded-xl bg-white hover:bg-slate-100 active:scale-95 text-slate-700 font-semibold text-xs sm:text-sm transition flex items-center gap-1 border border-slate-300 shadow-xs">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+              <span>Làm lại</span>
+            </button>
+          </div>
+
+          <!-- Speed Controls -->
+          <div class="flex items-center bg-white p-1 rounded-xl border border-slate-200 shadow-2xs text-xs font-semibold text-slate-600">
+            <span class="px-2 text-slate-400">Tốc độ:</span>
+            <button class="speed-opt px-2.5 py-1 rounded-lg transition" data-speed="0.5">0.5x</button>
+            <button class="speed-opt px-2.5 py-1 rounded-lg bg-indigo-600 text-white shadow-xs transition" data-speed="1.0">1.0x</button>
+            <button class="speed-opt px-2.5 py-1 rounded-lg transition" data-speed="1.5">1.5x</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Science & Teaching Notes (4 Cols) -->
+    <div class="lg:col-span-4 flex flex-col gap-4">
+      
+      <!-- Chemical Equation Card -->
+      <div class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-sm border border-indigo-900">
+        <div class="text-[11px] font-bold uppercase tracking-wider text-amber-400 mb-1">Phương trình quá trình nhường e</div>
+        <div class="text-xl sm:text-2xl font-extrabold tracking-wide font-code text-white py-1 flex items-center gap-2">
+          <span class="text-amber-300">Na</span>
+          <span class="text-red-400 font-sans">⟶</span>
+          <span class="text-cyan-300">Na<sup>+</sup></span>
+          <span class="text-slate-400 font-sans">+</span>
+          <span class="text-amber-400">1e</span>
+        </div>
+        <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+          Nguyên tử sodium (Z = 11) có 1 electron ở lớp ngoài cùng ($3s^1$). Để đạt cấu hình octet bền vững của khí hiếm neon gần nhất, sodium có xu hướng nhường đi 1 electron hóa trị này.
+        </p>
+      </div>
+
+      <!-- Audio Synthesizer Status Card -->
+      <div class="bg-indigo-50 border border-indigo-200 rounded-2xl p-4 shadow-xs">
+        <h3 class="text-xs font-bold text-indigo-950 flex items-center gap-2 uppercase tracking-wide mb-1.5">
+          <svg class="w-4 h-4 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+          </svg>
+          Âm thanh mô phỏng (Web Audio API)
+        </h3>
+        <p class="text-[11px] text-indigo-900 leading-relaxed">
+          Được hòa âm tự động bằng tiếng sáo du dương và nốt nhạc ngũ cung trong trẻo:
+        </p>
+        <div class="mt-2 text-[11px] text-indigo-800 space-y-1">
+          <div>• <strong>Tiếng sáo lượn vút:</strong> Xuất hiện khi electron thứ 11 bay qua phải.</div>
+          <div>• <strong>Tiếng chuông pha lê:</strong> Ngân vang khi tạo thành "+ 1e" và ion Na⁺.</div>
+          <div>• <strong>Hợp âm ấm áp:</strong> Rực rỡ khi phương trình hóa học bừng sáng.</div>
+        </div>
+      </div>
+
+      <!-- Chronological Stage Explanations -->
+      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col gap-3">
+        <h2 class="text-xs font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+          <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          3 Giai đoạn mô phỏng tuần tự
+        </h2>
+
+        <div class="space-y-2.5 text-xs">
+          <!-- Phase 1 -->
+          <div id="cardPhase1" class="p-2.5 rounded-xl border border-amber-300 bg-amber-50/60 transition">
+            <span class="font-bold text-amber-900 block mb-0.5">1. Ban đầu: Nguyên tử Sodium (Na)</span>
+            <p class="text-slate-600 text-[11px] leading-relaxed">
+              3 lớp vỏ e chuyển động liên tục quanh hạt nhân (+11). Lớp K có 2e, lớp L có 8e (4 cặp), lớp M có 1e ngoài cùng.
+            </p>
+          </div>
+
+          <!-- Phase 2 -->
+          <div id="cardPhase2" class="p-2.5 rounded-xl border border-slate-200 bg-slate-50 transition">
+            <span class="font-bold text-slate-800 block mb-0.5">2. Tiếp theo: Nhường 1 electron</span>
+            <p class="text-slate-600 text-[11px] leading-relaxed">
+              Mũi tên cam đỏ xuất hiện. 1e lớp thứ ba tách ra, bay theo quỹ đạo phát sáng sang bên phải, tan biến và hiện ra "+ 1e".
+            </p>
+          </div>
+
+          <!-- Phase 3 -->
+          <div id="cardPhase3" class="p-2.5 rounded-xl border border-slate-200 bg-slate-50 transition">
+            <span class="font-bold text-slate-800 block mb-0.5">3. Kết quả: Tạo thành Cation [Na]⁺</span>
+            <p class="text-slate-600 text-[11px] leading-relaxed">
+              Xuất hiện ion $\text{Na}^+$ trong ngoặc vuông với 2 lớp e (2, 8) cũng quay liên tục, đạt cấu hình octet bền của Neon.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pedagogical Key Notes -->
+      <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm flex flex-col gap-2.5">
+        <h2 class="text-xs font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+          <svg class="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+          Ghi chú sư phạm (SGK Hóa 10)
+        </h2>
+        <ul class="text-xs text-slate-600 space-y-2 leading-relaxed">
+          <li class="flex items-start gap-1.5">
+            <span class="text-indigo-600 font-bold">•</span>
+            <span><strong>Bán kính:</strong> Bán kính ion $\text{Na}^+$ nhỏ hơn hẳn nguyên tử $\text{Na}$ vì mất hoàn toàn lớp e ngoài cùng (từ 3 lớp giảm còn 2 lớp).</span>
+          </li>
+          <li class="flex items-start gap-1.5">
+            <span class="text-indigo-600 font-bold">•</span>
+            <span><strong>Độ ổn định:</strong> Lớp ngoài cùng của $\text{Na}^+$ có 8 electron đạt trạng thái bão hòa (quy tắc Octet).</span>
+          </li>
+        </ul>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 px-4 py-2.5 text-center text-xs text-slate-400">
+    Học liệu số Hóa học 10 THPT • Mô phỏng trực quan chuẩn kiến thức GDPT 2018
+  </footer>
+
+  <!-- Web Audio Synthesizer, Recorder & Bohr Animation Engine -->
+  <script>
+    const canvas = document.getElementById('bohrCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const timelineSlider = document.getElementById('timelineSlider');
+    const sliderPercentText = document.getElementById('sliderPercentText');
+    const stepIndicator = document.getElementById('stepIndicator');
+    const stageStatusText = document.getElementById('stageStatusText');
+    const headerBadge = document.getElementById('headerBadge');
+
+    const subPart1 = document.getElementById('subPart1');
+    const subPart2 = document.getElementById('subPart2');
+    const subPart3 = document.getElementById('subPart3');
+
+    const cardPhase1 = document.getElementById('cardPhase1');
+    const cardPhase2 = document.getElementById('cardPhase2');
+    const cardPhase3 = document.getElementById('cardPhase3');
+    const equationBanner = document.getElementById('equationBanner');
+    const glowBeam = document.getElementById('glowBeam');
+
+    const btnPlayPause = document.getElementById('btnPlayPause');
+    const btnPlayText = document.getElementById('btnPlayText');
+    const playIcon = document.getElementById('playIcon');
+    const pauseIcon = document.getElementById('pauseIcon');
+    const btnReset = document.getElementById('btnReset');
+    const btnAutoLoop = document.getElementById('btnAutoLoop');
+    const autoLoopText = document.getElementById('autoLoopText');
+    const btnRecordVideo = document.getElementById('btnRecordVideo');
+    const recordBtnText = document.getElementById('recordBtnText');
+    const recordingBadge = document.getElementById('recordingBadge');
+    const recordTimer = document.getElementById('recordTimer');
+
+    const btnToggleSound = document.getElementById('btnToggleSound');
+    const soundBtnText = document.getElementById('soundBtnText');
+    const audioModeLabel = document.getElementById('audioModeLabel');
+    const audioIconIndicator = document.getElementById('audioIconIndicator');
+    const speedButtons = document.querySelectorAll('.speed-opt');
+
+    // -------------------------------------------------------------
+    // 1. PURE WEB AUDIO SYNTHESIZER (FLUTE & MELODIC CHIMES)
+    // -------------------------------------------------------------
+    let audioCtx = null;
+    let recordingAudioDestination = null;
+    let isSoundEnabled = true;
+    let bgInterval = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        recordingAudioDestination = audioCtx.createMediaStreamDestination();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // Play smooth flute / musical tone note
+    function playFluteNote(freq, duration = 0.8, volume = 0.12) {
+      if (!isSoundEnabled) return;
+      initAudio();
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        // Triangle wave gives warm flute/panflute timbre
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now);
+
+        // Breath/vibrato LFO
+        const lfo = audioCtx.createOscillator();
+        const lfoGain = audioCtx.createGain();
+        lfo.frequency.setValueAtTime(5.5, now); // 5.5Hz vibrato
+        lfoGain.gain.setValueAtTime(4.0, now);
+        lfo.connect(osc.frequency);
+        lfo.start(now);
+        lfo.stop(now + duration);
+
+        // Envelope: smooth soft attack and long warm decay
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.exponentialRampToValueAtTime(volume, now + 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        if (recordingAudioDestination) gain.connect(recordingAudioDestination);
+
+        osc.start(now);
+        osc.stop(now + duration);
+      } catch (e) {
+        console.warn('Audio play error:', e);
+      }
+    }
+
+    // Play soaring flute glide for traveling electron
+    function playElectronGlide() {
+      if (!isSoundEnabled) return;
+      initAudio();
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sine';
+        // Glide smoothly from low to airy high
+        osc.frequency.setValueAtTime(392.00, now); // G4
+        osc.frequency.exponentialRampToValueAtTime(783.99, now + 1.2); // G5
+
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(0.15, now + 0.4);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.3);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        if (recordingAudioDestination) gain.connect(recordingAudioDestination);
+        osc.start(now);
+        osc.stop(now + 1.3);
+      } catch (e) {}
+    }
+
+    // Play sparkling chime chord when +1e appears
+    function playCrystalChimes() {
+      if (!isSoundEnabled) return;
+      initAudio();
+      const notes = [587.33, 880.00, 1174.66, 1760.00]; // D5, A5, D6, A6 pentatonic
+      notes.forEach((freq, idx) => {
+        setTimeout(() => {
+          playFluteNote(freq, 1.2, 0.08);
+        }, idx * 120);
+      });
+    }
+
+    // Play radiant chord when equation flashes
+    function playRadiantChord() {
+      if (!isSoundEnabled) return;
+      initAudio();
+      const chord = [329.63, 440.00, 554.37, 659.25, 880.00]; // E, A, C#, E, A
+      chord.forEach((freq) => {
+        playFluteNote(freq, 2.0, 0.06);
+      });
+    }
+
+    // Subtle background musical ambiance (peaceful pentatonic notes)
+    let ambientStep = 0;
+    const pentatonicScale = [440.00, 493.88, 554.37, 659.25, 739.99, 880.00];
+    function startAmbientMusic() {
+      if (bgInterval) clearInterval(bgInterval);
+      bgInterval = setInterval(() => {
+        if (isPlaying && isSoundEnabled && progress < 0.25) {
+          const note = pentatonicScale[ambientStep % pentatonicScale.length];
+          playFluteNote(note, 1.4, 0.035);
+          ambientStep++;
+        }
+      }, 1600);
+    }
+    startAmbientMusic();
+
+    // -------------------------------------------------------------
+    // 2. CANVAS SIZING WITH DPR
+    // -------------------------------------------------------------
+    let width = 0;
+    let height = 0;
+    const dpr = window.devicePixelRatio || 1;
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      width = rect.width;
+      height = rect.height;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // -------------------------------------------------------------
+    // 3. TIMELINE & ANIMATION STATE
+    // -------------------------------------------------------------
+    let progress = 0.0;
+    let isPlaying = false;
+    let isAutoLoop = true;
+    let playSpeed = 1.0;
+    const animStep = 0.0035;
+    let timeTick = 0;
+
+    // Trigger state flags for sound cues
+    let triggeredFlightSound = false;
+    let triggeredChimeSound = false;
+    let triggeredEquationSound = false;
+
+    // Electron orbital distributions
+    const baseAnglesK = [0, Math.PI];
+    const baseAnglesL = [
+      -Math.PI * 0.5 - 0.22, -Math.PI * 0.5 + 0.22,
+      0 - 0.22, 0 + 0.22,
+      Math.PI * 0.5 - 0.22, Math.PI * 0.5 + 0.22,
+      Math.PI - 0.22, Math.PI + 0.22
+    ];
+
+    // -------------------------------------------------------------
+    // 4. UI AND SYNCHRONIZED VIETNAMESE SUBTITLES
+    // -------------------------------------------------------------
+    function updateStatusUI() {
+      const pct = Math.round(progress * 100);
+      timelineSlider.value = pct;
+      sliderPercentText.innerText = `${pct}%`;
+      stepIndicator.innerText = `${pct}%`;
+
+      // Subtitle highlighting
+      if (progress < 0.25) {
+        subPart1.className = 'font-bold text-amber-300 drop-shadow-[0_0_8px_rgba(252,211,77,0.7)] transition-colors duration-300';
+        subPart2.className = 'text-slate-400 transition-colors duration-300';
+        subPart3.className = 'text-slate-400 transition-colors duration-300';
+      } else if (progress < 0.62) {
+        subPart1.className = 'text-slate-400 transition-colors duration-300';
+        subPart2.className = 'font-bold text-orange-400 drop-shadow-[0_0_8px_rgba(251,146,60,0.7)] transition-colors duration-300';
+        subPart3.className = 'text-slate-400 transition-colors duration-300';
+      } else {
+        subPart1.className = 'text-slate-400 transition-colors duration-300';
+        subPart2.className = 'text-slate-400 transition-colors duration-300';
+        subPart3.className = 'font-bold text-cyan-300 drop-shadow-[0_0_8px_rgba(103,232,249,0.7)] transition-colors duration-300';
+      }
+
+      // Equation banner show/hide
+      if (progress >= 0.70) {
+        equationBanner.classList.remove('opacity-0', 'translate-y-3');
+        equationBanner.classList.add('opacity-100', 'translate-y-0');
+        if (!triggeredEquationSound) {
+          playRadiantChord();
+          triggeredEquationSound = true;
+        }
+      } else {
+        equationBanner.classList.add('opacity-0', 'translate-y-3');
+        equationBanner.classList.remove('opacity-100', 'translate-y-0');
+        triggeredEquationSound = false;
+      }
+
+      // Phase cards and sound cues
+      if (progress < 0.25) {
+        stageStatusText.innerText = 'Giai đoạn 1: Nguyên tử Sodium (Na) đang quay với đầy đủ 3 lớp e (2, 8, 1)';
+        headerBadge.innerText = '● Giai đoạn 1: Nguyên tử Na';
+        headerBadge.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200';
+        cardPhase1.className = 'p-2.5 rounded-xl border border-amber-300 bg-amber-50/70 transition shadow-xs';
+        cardPhase2.className = 'p-2.5 rounded-xl border border-slate-200 bg-slate-50 transition';
+        cardPhase3.className = 'p-2.5 rounded-xl border border-slate-200 bg-slate-50 transition';
+        triggeredFlightSound = false;
+        triggeredChimeSound = false;
+      } else if (progress < 0.65) {
+        stageStatusText.innerText = 'Giai đoạn 2: Xuất hiện mũi tên, electron thứ 11 bay sang phải và hóa thành "+ 1e"';
+        headerBadge.innerText = '● Giai đoạn 2: Nhường 1e';
+        headerBadge.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200';
+        cardPhase1.className = 'p-2.5 rounded-xl border border-slate-200 bg-slate-50 transition';
+        cardPhase2.className = 'p-2.5 rounded-xl border border-orange-300 bg-orange-50/70 transition shadow-xs';
+        cardPhase3.className = 'p-2.5 rounded-xl border border-slate-200 bg-slate-50 transition';
+
+        if (!triggeredFlightSound) {
+          playElectronGlide();
+          triggeredFlightSound = true;
+        }
+        if (progress >= 0.52 && !triggeredChimeSound) {
+          playCrystalChimes();
+          triggeredChimeSound = true;
+        }
+      } else {
+        stageStatusText.innerText = 'Giai đoạn 3: Xuất hiện Cation [Na]+ (2 lớp e quay bền vững) và phương trình (Na → Na⁺ + 1e)';
+        headerBadge.innerText = '● Giai đoạn 3: Ion Na⁺ & Phương trình';
+        headerBadge.className = 'inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200';
+        cardPhase1.className = 'p-2.5 rounded-xl border border-slate-200 bg-slate-50 transition';
+        cardPhase2.className = 'p-2.5 rounded-xl border border-slate-200 bg-slate-50 transition';
+        cardPhase3.className = 'p-2.5 rounded-xl border border-indigo-300 bg-indigo-50/70 transition shadow-xs';
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 5. CANVAS RENDERING
+    // -------------------------------------------------------------
+    function render() {
+      ctx.clearRect(0, 0, width, height);
+      const scale = Math.min(width / 800, height / 440);
+
+      const leftCenterX = width * 0.24;
+      const leftCenterY = height * 0.42;
+      const rightCenterX = width * 0.69;
+      const rightCenterY = height * 0.42;
+
+      const arrowStartX = width * 0.39;
+      const arrowEndX = width * 0.52;
+      const arrowY = height * 0.42;
+
+      const nucleusRadius = 24 * scale;
+      const rK = 46 * scale;
+      const rL = 80 * scale;
+      const rM = 116 * scale;
+
+      const rotK_left = timeTick * 0.025;
+      const rotL_left = -timeTick * 0.015;
+      const rotM_left = timeTick * 0.008;
+
+      const rotK_right = (timeTick + 50) * 0.025;
+      const rotL_right = -(timeTick + 50) * 0.015;
+
+      // 1. LEFT MODEL: NGUYÊN TỬ SODIUM (Na)
+      const leftMAlpha = progress < 0.25 ? 1.0 : Math.max(0.2, 1.0 - (progress - 0.25) * 1.8);
+      drawAtomModel({
+        cx: leftCenterX,
+        cy: leftCenterY,
+        scale: scale,
+        nucleusRadius: nucleusRadius,
+        rK: rK,
+        rL: rL,
+        rM: rM,
+        hasM: true,
+        mAlpha: leftMAlpha,
+        rotK: rotK_left,
+        rotL: rotL_left,
+        rotM: rotM_left,
+        showValenceE: progress < 0.25,
+        bracket: false,
+        label: 'Nguyên tử sodium (Na)',
+        opacity: 1.0
+      });
+
+      // 2. MIDDLE RED-ORANGE ARROW
+      if (progress >= 0.25) {
+        const arrowAlpha = Math.min(1.0, (progress - 0.25) / 0.15);
+        drawRedArrow(arrowStartX, arrowEndX, arrowY, scale, arrowAlpha);
+      }
+
+      // 3. TRAVELING ELECTRON FLIGHT & "+ 1e"
+      const targetX = rightCenterX + rL + (46 * scale);
+      const targetY = rightCenterY;
+
+      if (progress >= 0.25 && progress < 0.60) {
+        const flightT = Math.min(1.0, (progress - 0.25) / 0.30);
+        const easedT = flightT < 0.5 ? 2 * flightT * flightT : -1 + (4 - 2 * flightT) * flightT;
+
+        const startX = leftCenterX + rM * Math.cos(rotM_left);
+        const startY = leftCenterY + rM * Math.sin(rotM_left);
+
+        const currentEX = startX + (targetX - startX) * easedT;
+        const currentEY = startY + (targetY - startY) * easedT - Math.sin(flightT * Math.PI) * (42 * scale);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+        ctx.quadraticCurveTo(
+          startX + (targetX - startX) * 0.5,
+          Math.min(startY, targetY) - (50 * scale),
+          currentEX,
+          currentEY
+        );
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+        ctx.lineWidth = 2.5 * scale;
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.restore();
+
+        if (flightT < 0.85) {
+          drawElectron(currentEX, currentEY, 5.5 * scale, '#1e3a8a');
+        } else {
+          const burstT = (flightT - 0.85) / 0.15;
+          const burstRadius = (6 + burstT * 18) * scale;
+          const burstAlpha = 1.0 - burstT;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(currentEX, currentEY, burstRadius, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(251, 191, 36, ${burstAlpha * 0.6})`;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(currentEX, currentEY, 5.5 * scale * (1 - burstT * 0.5), 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(30, 58, 138, ${burstAlpha})`;
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      if (progress >= 0.52) {
+        const textAlpha = Math.min(1.0, (progress - 0.52) / 0.15);
+        ctx.save();
+        ctx.globalAlpha = textAlpha;
+        ctx.fillStyle = '#0f172a';
+        ctx.font = `bold ${Math.round(20 * scale)}px Inter, sans-serif`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('+  1e', targetX, targetY);
+        ctx.restore();
+      }
+
+      // 4. RIGHT MODEL: CATION [Na]+ IN BRACKETS (Strictly 2 shells)
+      if (progress >= 0.58) {
+        const rightAlpha = Math.min(1.0, (progress - 0.58) / 0.25);
+        drawAtomModel({
+          cx: rightCenterX,
+          cy: rightCenterY,
+          scale: scale,
+          nucleusRadius: nucleusRadius,
+          rK: rK,
+          rL: rL,
+          rM: rM,
+          hasM: false,
+          mAlpha: 0,
+          rotK: rotK_right,
+          rotL: rotL_right,
+          rotM: 0,
+          showValenceE: false,
+          bracket: true,
+          bracketAlpha: rightAlpha,
+          label: 'Ion sodium  (Na⁺)',
+          opacity: rightAlpha
+        });
+      }
+
+      // 5. LIGHT SWEEP BEAM FOR EQUATION
+      if (progress >= 0.70) {
+        const sweepProgress = (timeTick % 120) / 120;
+        const beamTranslate = -100 + sweepProgress * 320;
+        glowBeam.style.transform = `translateX(${beamTranslate}%) skewX(-20deg)`;
+      }
+    }
+
+    function drawAtomModel(opts) {
+      const { cx, cy, scale, nucleusRadius, rK, rL, rM, hasM, mAlpha, rotK, rotL, rotM, showValenceE, bracket, bracketAlpha, label, opacity } = opts;
+
+      ctx.save();
+      ctx.globalAlpha = opacity;
+
+      if (hasM) {
+        ctx.save();
+        ctx.globalAlpha = opacity * mAlpha;
+        drawDisc(cx, cy, rM, '#eceff3');
+        drawCircleLine(cx, cy, rM, '#cbd5e1', 1.2 * scale);
+        ctx.restore();
+      }
+      drawDisc(cx, cy, rL, '#e2e7ec');
+      drawDisc(cx, cy, rK, '#d8dfe6');
+
+      drawCircleLine(cx, cy, rL, '#cbd5e1', 1.2 * scale);
+      drawCircleLine(cx, cy, rK, '#cbd5e1', 1.2 * scale);
+
+      drawNucleus(cx, cy, nucleusRadius, scale);
+
+      baseAnglesK.forEach(baseAng => {
+        const ang = baseAng + rotK;
+        const ex = cx + rK * Math.cos(ang);
+        const ey = cy + rK * Math.sin(ang);
+        drawElectron(ex, ey, 4.8 * scale, '#1e3a8a');
+      });
+
+      baseAnglesL.forEach(baseAng => {
+        const ang = baseAng + rotL;
+        const ex = cx + rL * Math.cos(ang);
+        const ey = cy + rL * Math.sin(ang);
+        drawElectron(ex, ey, 5.0 * scale, '#1e3a8a');
+      });
+
+      if (hasM && showValenceE) {
+        const ex = cx + rM * Math.cos(rotM);
+        const ey = cy + rM * Math.sin(rotM);
+        drawElectron(ex, ey, 5.5 * scale, '#1e3a8a');
+      }
+
+      if (bracket) {
+        drawSquareBrackets(cx, cy, rL + (18 * scale), scale, bracketAlpha);
+      }
+
+      ctx.restore();
+      ctx.save();
+      ctx.globalAlpha = opacity;
+      ctx.fillStyle = '#0f172a';
+      ctx.font = `600 ${Math.round(15 * scale)}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(label, cx, cy + Math.max(hasM ? rM : rL, rL) + (32 * scale));
+      ctx.restore();
+    }
+
+    function drawDisc(x, y, r, fill) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+
+    function drawCircleLine(x, y, r, stroke, lineWidth) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+    }
+
+    function drawNucleus(x, y, r, scale) {
+      ctx.save();
+      const grad = ctx.createRadialGradient(x - r * 0.25, y - r * 0.25, r * 0.1, x, y, r);
+      grad.addColorStop(0, '#fef3c7');
+      grad.addColorStop(0.5, '#d97706');
+      grad.addColorStop(1, '#92400e');
+
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.shadowColor = 'rgba(217, 119, 6, 0.4)';
+      ctx.shadowBlur = 8 * scale;
+      ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.round(15 * scale)}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+      ctx.shadowBlur = 3;
+      ctx.fillText('+11', x, y);
+      ctx.restore();
+    }
+
+    function drawElectron(x, y, r, color) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.shadowColor = 'rgba(30, 58, 138, 0.5)';
+      ctx.shadowBlur = 5;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.35, 0, Math.PI * 2);
+      ctx.fillStyle = '#93c5fd';
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawRedArrow(startX, endX, y, scale, alpha) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+
+      const bodyHeight = 12 * scale;
+      const headWidth = 24 * scale;
+      const headHeight = 26 * scale;
+
+      const grad = ctx.createLinearGradient(startX, y, endX, y);
+      grad.addColorStop(0, '#f97316');
+      grad.addColorStop(1, '#ef4444');
+
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(startX, y - bodyHeight / 2);
+      ctx.lineTo(endX - headWidth, y - bodyHeight / 2);
+      ctx.lineTo(endX - headWidth, y - headHeight / 2);
+      ctx.lineTo(endX, y);
+      ctx.lineTo(endX - headWidth, y + headHeight / 2);
+      ctx.lineTo(endX - headWidth, y + bodyHeight / 2);
+      ctx.lineTo(startX, y + bodyHeight / 2);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawSquareBrackets(cx, cy, halfSize, scale, alpha) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2.4 * scale;
+      ctx.lineCap = 'square';
+
+      const corner = 18 * scale;
+      const topY = cy - halfSize;
+      const bottomY = cy + halfSize;
+      const leftX = cx - halfSize;
+      const rightX = cx + halfSize;
+
+      ctx.beginPath();
+      ctx.moveTo(leftX + corner, topY);
+      ctx.lineTo(leftX, topY);
+      ctx.lineTo(leftX, bottomY);
+      ctx.lineTo(leftX + corner, bottomY);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(rightX - corner, topY);
+      ctx.lineTo(rightX, topY);
+      ctx.lineTo(rightX, bottomY);
+      ctx.lineTo(rightX - corner, bottomY);
+      ctx.stroke();
+
+      ctx.fillStyle = '#0f172a';
+      ctx.font = `bold ${Math.round(24 * scale)}px Inter, sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('+', rightX + (6 * scale), topY + (4 * scale));
+
+      ctx.restore();
+    }
+
+    // -------------------------------------------------------------
+    // 6. MAIN ANIMATION LOOP
+    // -------------------------------------------------------------
+    function animate() {
+      timeTick += 1.0 * playSpeed;
+
+      if (isPlaying) {
+        progress += animStep * playSpeed;
+
+        if (progress >= 1.0) {
+          if (isAutoLoop) {
+            // Pause 2 seconds at the end to admire the result then loop
+            isPlaying = false;
+            setTimeout(() => {
+              progress = 0.0;
+              isPlaying = true;
+              updatePlayButton();
+              updateStatusUI();
+            }, 2200);
+          } else {
+            progress = 1.0;
+            isPlaying = false;
+            updatePlayButton();
+          }
+        }
+        updateStatusUI();
+      }
+
+      render();
+      requestAnimationFrame(animate);
+    }
+
+    function updatePlayButton() {
+      if (isPlaying) {
+        btnPlayText.innerText = 'Tạm dừng';
+        playIcon.classList.add('hidden');
+        pauseIcon.classList.remove('hidden');
+      } else {
+        btnPlayText.innerText = progress >= 1.0 ? 'Xem lại từ đầu' : 'Tiếp tục mô phỏng';
+        playIcon.classList.remove('hidden');
+        pauseIcon.classList.add('hidden');
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 7. VIDEO SCREEN RECORDER (MEDIARECORDER API)
+    // -------------------------------------------------------------
+    // Composite stage and HTML equation into one opaque, full-HD video frame.
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = 1920;
+    exportCanvas.height = 1080;
+    const exportCtx = exportCanvas.getContext('2d', {alpha: false});
+    let exportFrameHandle = null;
+
+    function drawExportFrame() {
+      const c = exportCtx;
+      const W = 1920, H = 1080;
+      c.fillStyle = '#ffffff';
+      c.fillRect(0, 0, W, H);
+      // The source canvas is transparent: an opaque white underlay is essential.
+      c.drawImage(canvas, 0, 0, W, H);
+      // Source HTML overlays are NOT part of canvas.captureStream: redraw here.
+      if (progress >= 0.70) {
+        c.save();
+        c.fillStyle = '#0f172a';
+        const x = 375, y = 890, w = 1170, h = 112, r = 22;
+        c.beginPath(); c.roundRect(x,y,w,h,r); c.fill();
+        c.strokeStyle = '#fbbf24'; c.lineWidth = 4; c.stroke();
+        c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.font = 'bold 42px Arial, sans-serif';
+        c.fillStyle = '#fcd34d'; c.fillText('PHƯƠNG TRÌNH NHƯỜNG ELECTRON', W/2, 917);
+        c.font = 'bold 62px Arial, sans-serif';
+        c.fillStyle = '#ffffff'; c.fillText('Na  →  Na⁺  +  1e', W/2, 971);
+        c.restore();
+      }
+      c.save();
+      c.fillStyle = '#0f172a';
+      c.beginPath(); c.roundRect(1440, 1023, 440, 40, 9); c.fill();
+      c.fillStyle = '#fde047'; c.textAlign = 'center';
+      c.font = 'bold 23px Arial, sans-serif';
+      c.fillText('HỌC LIỆU SỐ - kthuyngn', 1660, 1051);
+      c.restore();
+      if (isRecording) exportFrameHandle = requestAnimationFrame(drawExportFrame);
+    }
+
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false;
+    let recordStartTime = 0;
+    let recordTimerInterval = null;
+
+    btnRecordVideo.addEventListener('click', () => {
+      initAudio();
+      if (!isRecording) {
+        startRecording();
+      } else {
+        stopRecording();
+      }
+    });
+
+    function startRecording() {
+      recordedChunks = [];
+      try {
+        // Composite all visual layers, then attach the actual Web Audio output.
+        isRecording = true;
+        drawExportFrame();
+        const stream = exportCanvas.captureStream(30);
+        if (recordingAudioDestination && isSoundEnabled) {
+          recordingAudioDestination.stream.getAudioTracks().forEach(track => stream.addTrack(track));
+        }
+        
+        let options = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: 8000000, audioBitsPerSecond: 128000 };
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          options = { mimeType: 'video/webm', videoBitsPerSecond: 8000000, audioBitsPerSecond: 128000 };
+        }
+
+        mediaRecorder = new MediaRecorder(stream, options);
+
+        mediaRecorder.ondataavailable = function(e) {
+          if (e.data.size > 0) {
+            recordedChunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = function() {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.style.display = 'none';
+          a.href = url;
+          a.download = `Mo_phong_Tao_ion_Na_kthuyngn_${Date.now()}.webm`;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+          }, 100);
+        };
+
+        mediaRecorder.start();
+        isRecording = true;
+        recordStartTime = Date.now();
+
+        // UI updates for recording
+        btnRecordVideo.classList.remove('bg-rose-600', 'hover:bg-rose-700');
+        btnRecordVideo.classList.add('bg-red-800', 'animate-pulse');
+        recordBtnText.innerText = 'Dừng & Tải video';
+        recordingBadge.classList.remove('hidden');
+        recordingBadge.classList.add('flex');
+
+        recordTimerInterval = setInterval(() => {
+          const elapsedSec = Math.floor((Date.now() - recordStartTime) / 1000);
+          const mins = String(Math.floor(elapsedSec / 60)).padStart(2, '0');
+          const secs = String(elapsedSec % 60).padStart(2, '0');
+          recordTimer.innerText = `${mins}:${secs}`;
+        }, 500);
+
+        // Auto restart simulation to capture full process cleanly
+        progress = 0.0;
+        isPlaying = true;
+        updatePlayButton();
+        updateStatusUI();
+
+      } catch (err) {
+        isRecording = false;
+        if (exportFrameHandle) cancelAnimationFrame(exportFrameHandle);
+        console.error('Không thể kích hoạt trình ghi hình:', err);
+      }
+    }
+
+    function stopRecording() {
+      if (exportFrameHandle) cancelAnimationFrame(exportFrameHandle);
+      exportFrameHandle = null;
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+      isRecording = false;
+      clearInterval(recordTimerInterval);
+
+      btnRecordVideo.classList.add('bg-rose-600', 'hover:bg-rose-700');
+      btnRecordVideo.classList.remove('bg-red-800', 'animate-pulse');
+      recordBtnText.innerText = 'Ghi video HD + âm thanh';
+      recordingBadge.classList.add('hidden');
+      recordingBadge.classList.remove('flex');
+    }
+
+    // -------------------------------------------------------------
+    // 8. EVENT HANDLERS & SOUND TOGGLE
+    // -------------------------------------------------------------
+    btnPlayPause.addEventListener('click', () => {
+      initAudio();
+      if (progress >= 1.0) {
+        progress = 0;
+      }
+      isPlaying = !isPlaying;
+      updatePlayButton();
+      updateStatusUI();
+    });
+
+    btnReset.addEventListener('click', () => {
+      isPlaying = false;
+      progress = 0;
+      updatePlayButton();
+      btnPlayText.innerText = 'Bắt đầu mô phỏng';
+      updateStatusUI();
+    });
+
+    btnAutoLoop.addEventListener('click', () => {
+      initAudio();
+      isAutoLoop = !isAutoLoop;
+      if (isAutoLoop) {
+        btnAutoLoop.classList.remove('bg-slate-300', 'text-slate-700');
+        btnAutoLoop.classList.add('bg-amber-500', 'text-white');
+        autoLoopText.innerText = 'Tự phát Video: BẬT';
+      } else {
+        btnAutoLoop.classList.remove('bg-amber-500', 'text-white');
+        btnAutoLoop.classList.add('bg-slate-300', 'text-slate-700');
+        autoLoopText.innerText = 'Tự phát Video: TẮT';
+      }
+    });
+
+    btnToggleSound.addEventListener('click', () => {
+      initAudio();
+      isSoundEnabled = !isSoundEnabled;
+      if (isSoundEnabled) {
+        soundBtnText.innerText = 'Âm thanh: BẬT';
+        audioModeLabel.innerText = 'Âm nhạc & Hiệu ứng sáo: BẬT';
+        audioIconIndicator.classList.remove('hidden');
+        btnToggleSound.classList.remove('bg-slate-800', 'text-slate-400');
+        btnToggleSound.classList.add('bg-indigo-900/60', 'text-indigo-200');
+      } else {
+        soundBtnText.innerText = 'Âm thanh: TẮT';
+        audioModeLabel.innerText = 'Âm thanh: ĐÃ TẮT';
+        audioIconIndicator.classList.add('hidden');
+        btnToggleSound.classList.add('bg-slate-800', 'text-slate-400');
+        btnToggleSound.classList.remove('bg-indigo-900/60', 'text-indigo-200');
+      }
+    });
+
+    timelineSlider.addEventListener('input', (e) => {
+      isPlaying = false;
+      progress = parseFloat(e.target.value) / 100;
+      updatePlayButton();
+      updateStatusUI();
+    });
+
+    speedButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        speedButtons.forEach(b => {
+          b.classList.remove('bg-indigo-600', 'text-white', 'shadow-xs');
+        });
+        btn.classList.add('bg-indigo-600', 'text-white', 'shadow-xs');
+        playSpeed = parseFloat(btn.dataset.speed);
+      });
+    });
+
+    // Start everything on window load
+    window.onload = function() {
+      resizeCanvas();
+      updateStatusUI();
+      // Auto start playback smoothly
+      isPlaying = true;
+      updatePlayButton();
+      animate();
+    };
+  </script>
+</body>
+</html>
